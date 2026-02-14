@@ -5,7 +5,7 @@ Description: Single Lambda function deployment test
 Parameters:
   AssetId:
     Type: String
-    Default: "208273"
+    Default: "12345"
   Environment:
     Type: String
     Default: "dev"
