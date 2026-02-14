@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Single Lambda function deployment test
+
+Parameters:
+  AssetId:
+    Type: String
+    Default: "208273"
+  Environment:
+    Type: String
+    Default: "dev"
+  SecurityGroupIds:
+    Type: String
+    Default: "sg-xxxxx"
+  SubnetIds:
+    Type: CommaDelimitedList
+    Default: "subnet-xxxxx,subnet-yyyyy"
+  LambdaRoleArn:
+    Type: String
+    Description: ARN of existing Lambda execution role
+  BucketName:
+    Type: String
+    Default: "a205933-cdn-tr-dev-environment"
+  BaseCdn:
+    Type: String
+    Default: "https://cdn.example.com"
+  DDAPIKEY:
+    Type: String
+    Description: Datadog API Key Secret ARN
+  ApiId:
+    Type: String
+    Description: Existing API Gateway ID
+    Default: "3ak3b0cn16"
+
+Resources:
+  helpcenterListS3ObjectsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub a${AssetId}-helpcenter-list-s3-objects-lambda-${Environment}
+      CodeUri: lambdas/
+      Handler: datadog-lambda-js/list-s3-objects.lambda_handler
+      Runtime: nodejs20.x
+      Role: !Ref LambdaRoleArn
+      Timeout: 60
+      MemorySize: 1024
+      VpcConfig:
+        SecurityGroupIds: !Split [",", !Ref SecurityGroupIds]
+        SubnetIds: !Ref SubnetIds
+      Environment:
+        Variables:
+          REGION_NAME: us-east-1
+          BUCKET_NAME: !Ref BucketName
+          BASE_CDN: !Ref BaseCdn
+          DD_ENV: !Ref Environment
+          DD_SERVICE: a208273-help-center-upload-download-lambdas
+          DD_API_KEY_SECRET_ARN: !Ref DDAPIKEY
+          DD_LAMBDA_HANDLER: list-s3-objects.lambda_handler
+          DD_SITE: datadoghq.com
+          DD_TRACE_ENABLED: 'true'
+          DD_LOGS_ENABLED: 'true'
+      Layers:
+        - arn:aws:lambda:us-east-1:464622532012:layer:Datadog-Node20-x:105
+        - arn:aws:lambda:us-east-1:464622532012:layer:Datadog-Extension:72
+
+  ListFilesInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt helpcenterListS3ObjectsFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiId}/*/GET/files
+
+Outputs:
+  FunctionArn:
+    Value: !GetAtt helpcenterListS3ObjectsFunction.Arn
+  FunctionName:
+    Value: !Ref helpcenterListS3ObjectsFunction
